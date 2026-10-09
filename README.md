@@ -1,5 +1,10 @@
 # MediQueue
 
+
+## Origin
+Originally built during AdaptIT Wits Hackathon by Enocent, Mlungisi, Hlaku and Thandile.
+This repository is an enhanced, independently maintained version.
+
 A React/Vite and FastAPI prototype for patient pre-consultation and administrator-offered appointment booking.
 
 ## Run locally
