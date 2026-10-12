@@ -34,6 +34,11 @@ def consultation_queue(admin: UserResponse = Depends(require_admin)):
 				"SELECT id, starts_at, department, location, status FROM appointment_offers WHERE consultation_id = ? ORDER BY starts_at",
 				(row["id"],),
 			).fetchall()
+			appointment = connection.execute(
+				"SELECT id, starts_at, department, location, status FROM appointments "
+				"WHERE consultation_id = ? ORDER BY created_at DESC LIMIT 1",
+				(row["id"],),
+			).fetchone()
 			results.append(
 				{
 					"id": row["id"],
@@ -47,6 +52,7 @@ def consultation_queue(admin: UserResponse = Depends(require_admin)):
 					"created_at": row["created_at"],
 					"images": [dict(image) for image in images],
 					"offers": [dict(offer) for offer in offers],
+					"appointment": dict(appointment) if appointment else None,
 				}
 			)
 	return results
@@ -72,25 +78,49 @@ def create_offers(
 	if len(set(zip(starts, resources))) != len(starts):
 		raise HTTPException(status_code=422, detail="Appointment options must have different resource and time combinations.")
 	with get_connection() as connection:
+		connection.execute("BEGIN IMMEDIATE")
 		consultation = connection.execute(
 			"SELECT id FROM consultations WHERE id = ?", (consultation_id,)
 		).fetchone()
 		if not consultation:
 			raise HTTPException(status_code=404, detail="Consultation not found.")
 		booked = connection.execute(
-			"SELECT id FROM appointments WHERE consultation_id = ?", (consultation_id,)
+			"SELECT id FROM appointments WHERE consultation_id = ? "
+			"AND status IN ('confirmed', 'reschedule_requested')",
+			(consultation_id,),
 		).fetchone()
-		if booked:
-			raise HTTPException(status_code=409, detail="This consultation already has a booked appointment.")
+		previous = connection.execute(
+			"SELECT status FROM appointments WHERE consultation_id = ? "
+			"AND status IN ('cancelled', 'completed') LIMIT 1",
+			(consultation_id,),
+		).fetchone() if not booked else None
+		if previous:
+			raise HTTPException(
+				status_code=409,
+				detail="This consultation already has a finished appointment. The patient must submit a new pre-consultation for another visit.",
+			)
 		for start, resource_key in zip(starts, resources):
 			if connection.execute(
-				"SELECT id FROM appointments WHERE resource_key = ? AND starts_at = ?",
-				(resource_key, utc_timestamp(start)),
+				"SELECT id FROM appointments WHERE resource_key = ? AND starts_at = ? "
+				"AND status != 'cancelled' AND (? IS NULL OR id != ?)",
+				(
+					resource_key,
+					utc_timestamp(start),
+					booked["id"] if booked else None,
+					booked["id"] if booked else None,
+				),
 			).fetchone():
 				raise HTTPException(status_code=409, detail="One or more offered resources are already booked at that time.")
 		connection.execute(
-			"DELETE FROM appointment_offers WHERE consultation_id = ?", (consultation_id,)
+			"UPDATE appointment_offers SET status = 'superseded' "
+			"WHERE consultation_id = ? AND status != 'superseded'",
+			(consultation_id,),
 		)
+		if booked:
+			connection.execute(
+				"UPDATE appointments SET status = 'reschedule_requested' WHERE id = ?",
+				(booked["id"],),
+			)
 		offer_ids = []
 		for offer, start, resource_key in zip(payload.offers, starts, resources):
 			offer_id = str(uuid.uuid4())
@@ -103,6 +133,59 @@ def create_offers(
 				(offer_id, consultation_id, utc_timestamp(start), offer.department, offer.location, resource_key),
 			)
 	return {"consultation_id": consultation_id, "offers": offer_ids}
+
+
+@router.post("/appointments/{appointment_id}/cancel")
+def cancel_admin_appointment(
+	appointment_id: str,
+	admin: UserResponse = Depends(require_admin),
+):
+	with get_connection() as connection:
+		connection.execute("BEGIN IMMEDIATE")
+		appointment = connection.execute(
+			"SELECT id, consultation_id, status FROM appointments WHERE id = ?",
+			(appointment_id,),
+		).fetchone()
+		if not appointment:
+			raise HTTPException(status_code=404, detail="Appointment not found.")
+		if appointment["status"] == "cancelled":
+			raise HTTPException(status_code=409, detail="This appointment has already been cancelled.")
+		if appointment["status"] not in {"confirmed", "reschedule_requested"}:
+			raise HTTPException(status_code=409, detail="This appointment can no longer be cancelled.")
+		connection.execute(
+			"UPDATE appointments SET status = 'cancelled' WHERE id = ?",
+			(appointment_id,),
+		)
+		connection.execute(
+			"UPDATE appointment_offers SET status = 'withdrawn' "
+			"WHERE consultation_id = ? AND status = 'offered'",
+			(appointment["consultation_id"],),
+		)
+	return {"id": appointment_id, "status": "cancelled"}
+
+
+@router.post("/appointments/{appointment_id}/complete")
+def complete_admin_appointment(
+	appointment_id: str,
+	admin: UserResponse = Depends(require_admin),
+):
+	with get_connection() as connection:
+		connection.execute("BEGIN IMMEDIATE")
+		appointment = connection.execute(
+			"SELECT id, starts_at, status FROM appointments WHERE id = ?",
+			(appointment_id,),
+		).fetchone()
+		if not appointment:
+			raise HTTPException(status_code=404, detail="Appointment not found.")
+		if appointment["status"] != "confirmed":
+			raise HTTPException(status_code=409, detail="Only confirmed appointments can be completed.")
+		if parse_timestamp(appointment["starts_at"]) > utc_now():
+			raise HTTPException(status_code=409, detail="An appointment cannot be completed before its scheduled time.")
+		connection.execute(
+			"UPDATE appointments SET status = 'completed' WHERE id = ?",
+			(appointment_id,),
+		)
+	return {"id": appointment_id, "status": "completed"}
 
 
 @router.get("/consultations/{consultation_id}/images/{image_id}")

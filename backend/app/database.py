@@ -116,9 +116,10 @@ def initialize_database():
 			"CREATE UNIQUE INDEX IF NOT EXISTS consultation_images_hash_idx "
 			"ON consultation_images(consultation_id, content_sha256) WHERE content_sha256 IS NOT NULL"
 		)
+		connection.execute("DROP INDEX IF EXISTS appointments_resource_time_idx")
 		connection.execute(
-			"CREATE UNIQUE INDEX IF NOT EXISTS appointments_resource_time_idx "
-			"ON appointments(resource_key, starts_at)"
+			"CREATE UNIQUE INDEX appointments_resource_time_idx "
+			"ON appointments(resource_key, starts_at) WHERE status != 'cancelled'"
 		)
 
 	admin_email = os.getenv("MEDIQUEUE_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL).strip().lower()

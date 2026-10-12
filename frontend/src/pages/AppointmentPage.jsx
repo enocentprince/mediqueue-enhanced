@@ -7,6 +7,8 @@ export default function AppointmentPage({
   consultationId,
   existingAppointment,
   onAppointmentBooked,
+  onCancelAppointment,
+  onRequestReschedule,
 }) {
   const [offers, setOffers] = useState([]);
   const [appointment, setAppointment] = useState(existingAppointment);
@@ -17,11 +19,11 @@ export default function AppointmentPage({
     setAppointment(existingAppointment);
   }, [existingAppointment]);
   useEffect(() => {
-    if (demo || !consultationId || existingAppointment) return;
+    if (demo || !consultationId) return;
     getAppointmentOffers(consultationId)
       .then(setOffers)
       .catch((loadError) => setError(loadError.message));
-  }, [demo, consultationId, existingAppointment]);
+  }, [demo, consultationId]);
   async function chooseOffer(offerId) {
     setBusy(true);
     setError("");
@@ -72,11 +74,52 @@ export default function AppointmentPage({
         {demo
           ? "Here’s how your appointment details will look once scheduling is connected."
           : appointment
-            ? "Your appointment is confirmed."
+            ? appointment.status === "cancelled"
+              ? "This appointment has been cancelled."
+              : appointment.status === "completed"
+                ? "This appointment is complete."
+                : "Your appointment is confirmed."
             : "Your care team will send you appointment options to choose from."}
       </p>
       {demo ? (
         <AppointmentCard demo />
+      ) : appointment && appointment.status !== "cancelled" ? (
+        <>
+          <AppointmentCard
+            appointment={appointment}
+            offerCount={offers.length}
+            onCancel={onCancelAppointment}
+            onRequestReschedule={onRequestReschedule}
+          />
+          {(appointment.status === "reschedule_requested" || offers.length > 0) && (
+            <section className="panel appointment-picker">
+              <h2>Choose a replacement time</h2>
+              {offers.map((offer) => (
+                <button
+                  className="slot-button"
+                  type="button"
+                  key={offer.id}
+                  disabled={busy}
+                  onClick={() => chooseOffer(offer.id)}
+                >
+                  <strong>
+                    {new Date(offer.starts_at).toLocaleString([], {
+                      dateStyle: "full",
+                      timeStyle: "short",
+                    })}
+                  </strong>
+                  <span>
+                    {offer.department} · {offer.location}
+                  </span>
+                </button>
+              ))}
+              {!offers.length && !error && (
+                <p className="muted">Your care team has not sent replacement times yet.</p>
+              )}
+              {error && <p className="error" role="alert">{error}</p>}
+            </section>
+          )}
+        </>
       ) : appointment ? (
         <AppointmentCard appointment={appointment} />
       ) : (
@@ -104,11 +147,7 @@ export default function AppointmentPage({
           {!offers.length && !error && (
             <p className="muted">No appointment options have been sent yet.</p>
           )}
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <p className="error" role="alert">{error}</p>}
         </section>
       )}
       <div className="panel visit-checklist">

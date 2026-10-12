@@ -25,10 +25,16 @@ Upload storage uses generated UUID filenames under `uploads/`; supplied filename
 - `GET /admin/consultations/{id}/images/{image_id}` returns a protected image to an administrator.
 - `POST /admin/consultations/{id}/offers` publishes two to five future appointment options.
 - `GET /appointments/offers?consultation_id={id}` lists unexpired options for a consultation owned by the patient.
-- `POST /appointments/offers/{offer_id}/select` confirms one option and withdraws the rest in one transaction.
+- `POST /appointments/offers/{offer_id}/select` confirms a new appointment or replaces the patient's existing appointment with the selected reschedule option, withdrawing the remaining options in one transaction.
+- `POST /appointments/{id}/cancel` lets the appointment owner cancel a booking; the released time can be booked by another patient.
+- `POST /appointments/{id}/reschedule-request` lets the appointment owner request new options while retaining the current booking until a replacement is selected.
 - `GET /appointments` returns all appointments owned by the signed-in patient.
+- `POST /admin/appointments/{id}/cancel` lets an administrator cancel a booking.
+- `POST /admin/appointments/{id}/complete` marks a confirmed appointment completed after its scheduled time.
+- A completed or cancelled appointment remains in the patient's appointment history; another booking requires a distinct pre-consultation.
+- `POST /admin/consultations/{id}/offers` can also publish replacement options for an existing booking. The existing time remains held until the patient selects a replacement.
 
-Appointment inputs must include a timezone offset. The API normalizes them to UTC and returns ISO-8601 timestamps ending in `Z`. Selecting an expired offer returns `410`; selected, withdrawn, or resource-conflicting offers return `409`. Scheduling conflicts are scoped to the normalized department and location pair rather than globally to a timestamp.
+Appointment inputs must include a timezone offset. The API normalizes them to UTC and returns ISO-8601 timestamps ending in `Z`. Selecting an expired offer returns `410`; selected, withdrawn, or resource-conflicting offers return `409`. Cancelled bookings do not hold their former time slot. Scheduling conflicts are scoped to the normalized department and location pair rather than globally to a timestamp.
 
 Admin accounts are provisioned at startup with `MEDIQUEUE_ADMIN_EMAIL` and `MEDIQUEUE_ADMIN_PASSWORD`. Admin operations and patient ownership checks are enforced by the API. Frontend route visibility is not treated as authorization.
 

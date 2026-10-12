@@ -43,7 +43,8 @@ def latest_patient_consultation(user: UserResponse = Depends(get_current_user)):
 			(row["id"],),
 		).fetchone()
 		offers = connection.execute(
-			"SELECT id, starts_at, department, location, status FROM appointment_offers WHERE consultation_id = ? ORDER BY starts_at",
+			"SELECT id, starts_at, department, location, status FROM appointment_offers "
+			"WHERE consultation_id = ? AND status = 'offered' ORDER BY starts_at",
 			(row["id"],),
 		).fetchall()
 	return {

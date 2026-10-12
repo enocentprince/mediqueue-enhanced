@@ -67,30 +67,70 @@ def select_appointment_offer(
 			raise HTTPException(status_code=409, detail="That appointment option is no longer available.")
 		if parse_timestamp(offer["starts_at"]) <= utc_now():
 			raise HTTPException(status_code=410, detail="That appointment option has expired. Ask your care team for another option.")
+		current = connection.execute(
+			"SELECT id FROM appointments WHERE consultation_id = ? "
+			"AND status IN ('confirmed', 'reschedule_requested')",
+			(offer["consultation_id"],),
+		).fetchone()
+		if not current:
+			previous = connection.execute(
+				"SELECT status FROM appointments WHERE consultation_id = ? "
+				"AND status IN ('cancelled', 'completed') LIMIT 1",
+				(offer["consultation_id"],),
+			).fetchone()
+			if previous:
+				raise HTTPException(
+					status_code=409,
+					detail="This consultation already has a finished appointment. Submit a new pre-consultation to book another visit.",
+				)
 		if connection.execute(
-			"SELECT id FROM appointments WHERE resource_key = ? AND starts_at = ?",
-			(offer["resource_key"], offer["starts_at"]),
+			"SELECT id FROM appointments WHERE resource_key = ? AND starts_at = ? "
+			"AND status != 'cancelled' AND (? IS NULL OR id != ?)",
+			(
+				offer["resource_key"],
+				offer["starts_at"],
+				current["id"] if current else None,
+				current["id"] if current else None,
+			),
 		).fetchone():
 			raise HTTPException(status_code=409, detail="That scheduling resource was just booked. Ask your care team for another option.")
-		appointment_id = str(uuid.uuid4())
+		appointment_id = current["id"] if current else str(uuid.uuid4())
 		try:
-			connection.execute(
-				"""
-				INSERT INTO appointments
-				(id, patient_id, consultation_id, slot_id, starts_at, department, location, resource_key)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-				""",
-				(
-					appointment_id,
-					user.id,
-					offer["consultation_id"],
-					f"offer:{offer_id}",
-					offer["starts_at"],
-					offer["department"],
-					offer["location"],
-					offer["resource_key"],
-				),
-			)
+			if current:
+				connection.execute(
+					"""
+					UPDATE appointments
+					SET slot_id = ?, starts_at = ?, department = ?, location = ?,
+						resource_key = ?, status = 'confirmed'
+					WHERE id = ?
+					""",
+					(
+						f"offer:{offer_id}",
+						offer["starts_at"],
+						offer["department"],
+						offer["location"],
+						offer["resource_key"],
+						appointment_id,
+					),
+				)
+			else:
+				connection.execute(
+					"""
+					INSERT INTO appointments
+					(id, patient_id, consultation_id, slot_id, starts_at, department, location, resource_key)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					""",
+					(
+						appointment_id,
+						user.id,
+						offer["consultation_id"],
+						f"offer:{offer_id}",
+						offer["starts_at"],
+						offer["department"],
+						offer["location"],
+						offer["resource_key"],
+					),
+				)
 		except sqlite3.IntegrityError as error:
 			raise HTTPException(
 				status_code=409,
@@ -103,6 +143,63 @@ def select_appointment_offer(
 		connection.execute(
 			"UPDATE appointment_offers SET status = 'withdrawn' WHERE consultation_id = ? AND id != ? AND status = 'offered'",
 			(offer["consultation_id"], offer_id),
+		)
+		row = connection.execute(
+			"SELECT * FROM appointments WHERE id = ?", (appointment_id,)
+		).fetchone()
+	return to_response(row)
+
+
+@router.post("/{appointment_id}/cancel", response_model=AppointmentResponse)
+def cancel_patient_appointment(
+	appointment_id: str,
+	user: UserResponse = Depends(get_current_user),
+):
+	with get_connection() as connection:
+		connection.execute("BEGIN IMMEDIATE")
+		appointment = connection.execute(
+			"SELECT * FROM appointments WHERE id = ? AND patient_id = ?",
+			(appointment_id, user.id),
+		).fetchone()
+		if not appointment:
+			raise HTTPException(status_code=404, detail="Appointment not found.")
+		if appointment["status"] == "cancelled":
+			raise HTTPException(status_code=409, detail="This appointment has already been cancelled.")
+		if appointment["status"] not in {"confirmed", "reschedule_requested"}:
+			raise HTTPException(status_code=409, detail="This appointment can no longer be cancelled.")
+		connection.execute(
+			"UPDATE appointments SET status = 'cancelled' WHERE id = ?",
+			(appointment_id,),
+		)
+		connection.execute(
+			"UPDATE appointment_offers SET status = 'withdrawn' "
+			"WHERE consultation_id = ? AND status = 'offered'",
+			(appointment["consultation_id"],),
+		)
+		row = connection.execute(
+			"SELECT * FROM appointments WHERE id = ?", (appointment_id,)
+		).fetchone()
+	return to_response(row)
+
+
+@router.post("/{appointment_id}/reschedule-request", response_model=AppointmentResponse)
+def request_patient_reschedule(
+	appointment_id: str,
+	user: UserResponse = Depends(get_current_user),
+):
+	with get_connection() as connection:
+		connection.execute("BEGIN IMMEDIATE")
+		appointment = connection.execute(
+			"SELECT * FROM appointments WHERE id = ? AND patient_id = ?",
+			(appointment_id, user.id),
+		).fetchone()
+		if not appointment:
+			raise HTTPException(status_code=404, detail="Appointment not found.")
+		if appointment["status"] != "confirmed":
+			raise HTTPException(status_code=409, detail="This appointment cannot be rescheduled.")
+		connection.execute(
+			"UPDATE appointments SET status = 'reschedule_requested' WHERE id = ?",
+			(appointment_id,),
 		)
 		row = connection.execute(
 			"SELECT * FROM appointments WHERE id = ?", (appointment_id,)

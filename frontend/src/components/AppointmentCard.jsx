@@ -1,10 +1,28 @@
+import { useState } from "react";
 import { CalendarDays, Clock3, MapPin, Building2, Check } from "lucide-react";
 export default function AppointmentCard({
   compact = false,
   appointment,
   demo = false,
+  offerCount = 0,
+  onCancel,
+  onRequestReschedule,
 }) {
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
   if (!appointment && !demo) return null;
+  async function runAction(action) {
+    setActionError("");
+    if (action === onCancel && !window.confirm("Cancel this appointment?")) return;
+    setBusy(true);
+    try {
+      await action();
+    } catch (error) {
+      setActionError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const details = appointment
     ? [
         [
@@ -37,7 +55,11 @@ export default function AppointmentCard({
         </span>
         <strong>
           {appointment
-            ? "Your appointment is confirmed"
+            ? appointment.status === "cancelled"
+              ? "Your appointment was cancelled"
+              : appointment.status === "completed"
+                ? "Your appointment has been completed"
+                : "Your appointment is confirmed"
             : compact
               ? "Your visit, planned."
               : "Your sample appointment"}
@@ -46,7 +68,13 @@ export default function AppointmentCard({
           {compact
             ? "A little less waiting."
             : appointment
-              ? "Your care team has your pre-consultation."
+              ? appointment.status === "reschedule_requested"
+                ? "Your care team is arranging a new time. Your current booking is held until you choose a replacement."
+                : appointment.status === "cancelled"
+                  ? "This appointment is no longer active."
+                  : appointment.status === "completed"
+                    ? "This visit is complete. You can start a new pre-consultation for another appointment."
+                  : "Your care team has your pre-consultation."
               : "Demo only · no appointment has been booked"}
         </span>
       </div>
@@ -64,8 +92,57 @@ export default function AppointmentCard({
         ))}
       </div>
       <p className="appointment-note">
-        Please arrive 10 minutes before your scheduled time.
+        {appointment?.status === "cancelled"
+          ? "Contact your care team if you need help arranging another visit."
+          : appointment?.status === "completed"
+            ? "You can review this visit in your appointment history."
+            : "Please arrive 10 minutes before your scheduled time."}
       </p>
+      {appointment?.status === "confirmed" && (onCancel || onRequestReschedule) && (
+        <div className="appointment-actions">
+          {onRequestReschedule && (
+            <button
+              className="button button-outline"
+              type="button"
+              disabled={busy}
+              onClick={() => runAction(onRequestReschedule)}
+            >
+              Request a new time
+            </button>
+          )}
+          {onCancel && (
+            <button
+              className="button button-outline cancel-appointment-button"
+              type="button"
+              disabled={busy}
+              onClick={() => runAction(onCancel)}
+            >
+              Cancel appointment
+            </button>
+          )}
+        </div>
+      )}
+      {appointment?.status === "reschedule_requested" && (
+        <div className="appointment-actions">
+          <a className="button button-primary" href="#/appointment">
+            {offerCount > 0 ? "Choose a new time" : "Check for new times"}
+          </a>
+          {offerCount === 0 && (
+            <span className="muted">Your current booking stays in place.</span>
+          )}
+          {onCancel && (
+            <button
+              className="button button-outline cancel-appointment-button"
+              type="button"
+              disabled={busy}
+              onClick={() => runAction(onCancel)}
+            >
+              Cancel appointment
+            </button>
+          )}
+        </div>
+      )}
+      {actionError && <p className="error" role="alert">{actionError}</p>}
     </div>
   );
 }

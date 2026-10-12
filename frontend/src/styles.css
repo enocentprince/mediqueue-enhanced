@@ -671,6 +671,22 @@ input[type="checkbox"] {
   font-size: max(16px, 12px);
   margin-bottom: 0;
 }
+.appointment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.appointment-actions .button {
+  white-space: normal;
+}
+.cancel-appointment-button {
+  color: #a62235;
+  border-color: #edcdd2;
+}
+.cancel-appointment-button:hover {
+  background: #fff1f2;
+}
 .compact {
   padding: 0;
   border: 0;
@@ -1098,6 +1114,20 @@ input[type="checkbox"] {
 .published-offers strong {
   color: var(--navy);
 }
+.admin-current-appointment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.admin-current-appointment p {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
 .admin-nav-link {
   white-space: nowrap;
 }
@@ -1138,6 +1168,15 @@ input[type="checkbox"] {
   max-width: 430px;
   color: var(--muted);
   font-size: max(16px, 14px);
+}
+.dashboard-start .new-consultation-button {
+  margin-left: 10px;
+}
+.dashboard-history-link {
+  display: inline-block;
+  margin-top: 16px;
+  color: var(--blue);
+  font-weight: 600;
 }
 .large-icon {
   color: var(--blue);
@@ -1184,6 +1223,58 @@ input[type="checkbox"] {
   color: #7186a6;
   border-radius: 20px;
   padding: 8px 14px;
+}
+.history-page {
+  max-width: 900px;
+}
+.history-list {
+  display: grid;
+  gap: 14px;
+}
+.history-appointment {
+  padding: 22px 26px;
+}
+.history-appointment-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.history-appointment-heading h2 {
+  margin: 0;
+}
+.history-status {
+  border-radius: 18px;
+  padding: 6px 11px;
+  text-transform: capitalize;
+  font-size: 13px;
+  font-weight: 600;
+}
+.history-status.completed {
+  color: #21734e;
+  background: #e8f7ef;
+}
+.history-status.cancelled {
+  color: #9a3543;
+  background: #fff0f1;
+}
+.history-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  margin-top: 16px;
+  color: var(--muted);
+}
+.history-details span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
 }
 .info-strip {
   display: flex;

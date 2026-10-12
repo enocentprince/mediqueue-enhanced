@@ -106,12 +106,28 @@ export async function getAppointmentOffers(consultationId) {
   );
 }
 
+export async function getAppointments() {
+  return requestJson("/appointments", { method: "GET" });
+}
+
 export async function getLatestConsultation() {
   return requestJson("/consultations/mine/latest", { method: "GET" });
 }
 
 export async function selectAppointmentOffer(offerId) {
   return requestJson(`/appointments/offers/${offerId}/select`, {
+    method: "POST",
+  });
+}
+
+export async function cancelAppointment(appointmentId) {
+  return requestJson(`/appointments/${appointmentId}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function requestAppointmentReschedule(appointmentId) {
+  return requestJson(`/appointments/${appointmentId}/reschedule-request`, {
     method: "POST",
   });
 }
@@ -124,5 +140,17 @@ export async function offerAppointmentDates(consultationId, offers) {
   return requestJson(`/admin/consultations/${consultationId}/offers`, {
     method: "POST",
     body: JSON.stringify({ offers }),
+  });
+}
+
+export async function cancelAdminAppointment(appointmentId) {
+  return requestJson(`/admin/appointments/${appointmentId}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function completeAdminAppointment(appointmentId) {
+  return requestJson(`/admin/appointments/${appointmentId}/complete`, {
+    method: "POST",
   });
 }

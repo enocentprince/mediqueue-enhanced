@@ -9,13 +9,16 @@ import PreConsultation from "./pages/PreConsultation";
 import UploadSymptoms from "./pages/UploadSymptoms";
 import ReviewPage from "./pages/ReviewPage";
 import AppointmentPage from "./pages/AppointmentPage";
+import HistoryPage from "./pages/HistoryPage";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Button from "./components/Button";
 import { useAuth } from "./context/AuthContext";
 import {
+  cancelAppointment,
   createConsultation,
   getLatestConsultation,
+  requestAppointmentReschedule,
   uploadConsultationImage,
 } from "./services/api";
 const emptyDraft = () => ({
@@ -34,6 +37,7 @@ export default function App() {
   const [submitted, setSubmitted] = useState(false);
   const [consultationId, setConsultationId] = useState("");
   const [appointment, setAppointment] = useState(null);
+  const [appointmentOffers, setAppointmentOffers] = useState([]);
   const [patientDataLoading, setPatientDataLoading] = useState(false);
   const [patientDataError, setPatientDataError] = useState("");
   const { user, demo, leaveSession } = useAuth();
@@ -58,6 +62,15 @@ export default function App() {
     window.location.hash = "/appointment";
   }
 
+  function startNewConsultation() {
+    setDraft(emptyDraft());
+    setSubmitted(false);
+    setConsultationId("");
+    setAppointment(null);
+    setAppointmentOffers([]);
+    window.location.hash = "/consultation";
+  }
+
   const refreshPatientData = useCallback(async () => {
     if (!user || demo) return;
     setPatientDataLoading(true);
@@ -68,9 +81,11 @@ export default function App() {
         setSubmitted(false);
         setConsultationId("");
         setAppointment(null);
+        setAppointmentOffers([]);
         return;
       }
       setAppointment(consultation.appointment);
+      setAppointmentOffers(consultation.offers || []);
       setConsultationId(consultation.id);
       setSubmitted(true);
       setDraft({
@@ -89,6 +104,15 @@ export default function App() {
       setPatientDataLoading(false);
     }
   }, [user, demo]);
+  async function cancelPatientAppointment() {
+    const cancelled = await cancelAppointment(appointment.id);
+    setAppointment(cancelled);
+    setAppointmentOffers([]);
+  }
+  async function requestPatientReschedule() {
+    const requested = await requestAppointmentReschedule(appointment.id);
+    setAppointment(requested);
+  }
   useEffect(() => {
     const change = () => setPath(window.location.hash.slice(1) || "/");
     window.addEventListener("hashchange", change);
@@ -111,10 +135,11 @@ export default function App() {
     const section = document.getElementById(path.slice(1));
     if (section) section.scrollIntoView({ behavior: "smooth" });
     else window.scrollTo(0, 0);
-    document.title = `MediQueue — ${{ "/login": "Sign in", "/login/admin": "Admin sign in", "/login/patient": "Patient sign in", "/register": "Create your account", "/dashboard": "Your dashboard", "/consultation": "Pre-consultation", "/upload": "Additional details", "/review": "Review your information", "/appointment": "Appointment options", "/admin": "Consultation review" }[path] || "Your care, with less waiting"}`;
+    document.title = `MediQueue — ${{ "/login": "Sign in", "/login/admin": "Admin sign in", "/login/patient": "Patient sign in", "/register": "Create your account", "/dashboard": "Your dashboard", "/history": "Appointment history", "/consultation": "Pre-consultation", "/upload": "Additional details", "/review": "Review your information", "/appointment": "Appointment options", "/admin": "Consultation review" }[path] || "Your care, with less waiting"}`;
   }, [path]);
   const protectedPage = [
     "/dashboard",
+    "/history",
     "/consultation",
     "/upload",
     "/review",
@@ -159,10 +184,16 @@ export default function App() {
         submitted={submitted}
         demo={demo}
         appointment={appointment}
+        appointmentOffers={appointmentOffers}
+        onCancelAppointment={cancelPatientAppointment}
+        onRequestReschedule={requestPatientReschedule}
+        onStartNewConsultation={startNewConsultation}
         loading={patientDataLoading}
         error={patientDataError}
       />
     );
+  else if (path === "/history")
+    page = <HistoryPage demo={demo} onStartNewConsultation={startNewConsultation} />;
   else if (path === "/consultation")
     page = <PreConsultation draft={draft} setDraft={setDraft} />;
   else if (
@@ -190,7 +221,12 @@ export default function App() {
         demo={demo}
         consultationId={consultationId}
         existingAppointment={appointment}
-        onAppointmentBooked={setAppointment}
+        onAppointmentBooked={(booked) => {
+          setAppointment(booked);
+          setAppointmentOffers([]);
+        }}
+        onCancelAppointment={cancelPatientAppointment}
+        onRequestReschedule={requestPatientReschedule}
       />
     );
   else if (path === "/appointment")

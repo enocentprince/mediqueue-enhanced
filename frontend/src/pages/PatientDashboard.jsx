@@ -12,6 +12,10 @@ export default function PatientDashboard({
   submitted,
   demo,
   appointment,
+  appointmentOffers,
+  onCancelAppointment,
+  onRequestReschedule,
+  onStartNewConsultation,
   loading,
   error,
 }) {
@@ -62,6 +66,16 @@ export default function PatientDashboard({
                 : "Start pre-consultation"}
             <ArrowRight size={18} />
           </Button>
+          <Button
+            variant="outline"
+            className="new-consultation-button"
+            onClick={onStartNewConsultation}
+          >
+            Start a new pre-consultation
+          </Button>
+          <a className="dashboard-history-link" href="#/history">
+            View appointment history
+          </a>
         </section>
         {loading ? (
           <section className="panel empty-appointment" role="status">
@@ -69,7 +83,12 @@ export default function PatientDashboard({
             <h2>Loading your appointment</h2>
           </section>
         ) : appointment ? (
-          <AppointmentCard appointment={appointment} />
+          <AppointmentCard
+            appointment={appointment}
+            offerCount={appointmentOffers.length}
+            onCancel={onCancelAppointment}
+            onRequestReschedule={onRequestReschedule}
+          />
         ) : demo && submitted ? (
           <AppointmentCard demo />
         ) : (
