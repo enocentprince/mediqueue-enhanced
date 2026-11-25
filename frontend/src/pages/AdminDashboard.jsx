@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CalendarClock, ClipboardList, RefreshCw } from "lucide-react";
 import {
   getAdminConsultations,
+  getAdminAppointments,
   cancelAdminAppointment,
   completeAdminAppointment,
   offerAppointmentDates,
@@ -15,10 +16,15 @@ function defaultOptions() {
 
 export default function AdminDashboard() {
   const [consultations, setConsultations] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [emailSearch, setEmailSearch] = useState("");
+  const [activeEmailSearch, setActiveEmailSearch] = useState("");
   const [options, setOptions] = useState({});
   const [loading, setLoading] = useState(true);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
+  const [appointmentsError, setAppointmentsError] = useState("");
   const [notice, setNotice] = useState("");
 
   async function loadQueue() {
@@ -33,8 +39,22 @@ export default function AdminDashboard() {
     }
   }
 
+  async function loadAppointments(email = activeEmailSearch) {
+    setAppointmentsLoading(true);
+    setAppointmentsError("");
+    try {
+      setAppointments(await getAdminAppointments(email));
+      setActiveEmailSearch(email.trim());
+    } catch (loadError) {
+      setAppointmentsError(loadError.message);
+    } finally {
+      setAppointmentsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadQueue();
+    loadAppointments("");
   }, []);
 
   function updateOption(consultationId, index, key, value) {
@@ -114,17 +134,99 @@ export default function AdminDashboard() {
       <div className="admin-heading">
         <div>
           <span className="eyebrow plain">CARE TEAM WORKSPACE</span>
-          <h1>Consultation review</h1>
+          <h1>My dashboard</h1>
           <p className="page-intro">
-            Review patient-submitted concerns and offer appointment times for them to select.
+            View appointments across the care team and find a patient's bookings by email.
           </p>
         </div>
-        <button className="button button-outline refresh-button" onClick={loadQueue} disabled={loading}>
+        <button className="button button-outline refresh-button" onClick={() => { loadQueue(); loadAppointments(); }} disabled={loading || appointmentsLoading}>
           <RefreshCw size={16} /> Refresh
         </button>
       </div>
+      <section className="admin-appointment-directory" aria-labelledby="admin-appointments-title">
+        <div className="admin-section-heading">
+          <div>
+            <h2 id="admin-appointments-title">All appointments</h2>
+            <p>Search by a patient's unique email address.</p>
+          </div>
+          <form
+            className="admin-appointment-search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              loadAppointments(emailSearch);
+            }}
+          >
+            <label htmlFor="admin-email-search">Patient email</label>
+            <div>
+              <input
+                id="admin-email-search"
+                type="email"
+                value={emailSearch}
+                onChange={(event) => setEmailSearch(event.target.value)}
+                placeholder="name@example.com"
+              />
+              <button className="button button-primary" type="submit" disabled={appointmentsLoading}>
+                Search
+              </button>
+              {activeEmailSearch && (
+                <button
+                  className="button button-outline"
+                  type="button"
+                  disabled={appointmentsLoading}
+                  onClick={() => {
+                    setEmailSearch("");
+                    loadAppointments("");
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+        {appointmentsError && <p className="error" role="alert">{appointmentsError}</p>}
+        {appointmentsLoading ? (
+          <p role="status">Loading appointments...</p>
+        ) : appointments.length === 0 ? (
+          <p className="muted">{activeEmailSearch ? "No appointments found for this email address." : "No appointments have been booked yet."}</p>
+        ) : (
+          <div className="admin-appointment-table-wrap">
+            <table className="admin-appointment-table">
+              <thead>
+                <tr>
+                  <th scope="col">Patient</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Date and time</th>
+                  <th scope="col">Appointment type</th>
+                  <th scope="col">Location</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {appointments.map((appointment) => (
+                  <tr key={appointment.id}>
+                    <td>{appointment.patient.name}</td>
+                    <td>{appointment.patient.email}</td>
+                    <td>{new Date(appointment.starts_at).toLocaleString()}</td>
+                    <td>{appointment.department}</td>
+                    <td>{appointment.location}</td>
+                    <td>{appointment.status.replaceAll("_", " ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
       {error && <p className="error" role="alert">{error}</p>}
       {notice && <p className="success-message" role="status">{notice}</p>}
+      <section className="admin-consultation-review" aria-labelledby="consultation-review-title">
+        <div className="admin-section-heading">
+          <div>
+            <h2 id="consultation-review-title">Consultation review</h2>
+            <p>Review patient-submitted concerns and offer appointment times.</p>
+          </div>
+        </div>
       {loading ? (
         <p role="status">Loading consultations...</p>
       ) : consultations.length === 0 ? (
@@ -283,6 +385,7 @@ export default function AdminDashboard() {
           })}
         </div>
       )}
+      </section>
     </main>
   );
 }

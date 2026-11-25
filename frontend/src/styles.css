@@ -1019,6 +1019,72 @@ input[type="checkbox"] {
   align-items: center;
   gap: 8px;
 }
+.admin-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+.admin-section-heading h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.admin-section-heading p {
+  margin: 0;
+  color: var(--muted);
+}
+.admin-appointment-directory {
+  margin: 8px 0 38px;
+  padding-block: 22px 28px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.admin-appointment-search {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 410px);
+}
+.admin-appointment-search label {
+  font-size: 13px;
+  font-weight: 700;
+}
+.admin-appointment-search > div {
+  display: flex;
+  gap: 8px;
+}
+.admin-appointment-search input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+.admin-appointment-table-wrap {
+  overflow-x: auto;
+}
+.admin-appointment-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.admin-appointment-table th,
+.admin-appointment-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.admin-appointment-table th {
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-appointment-table td {
+  overflow-wrap: anywhere;
+}
+.admin-consultation-review > .admin-section-heading {
+  margin-bottom: 18px;
+}
 .admin-queue {
   display: grid;
   gap: 18px;
@@ -1226,6 +1292,28 @@ input[type="checkbox"] {
 }
 .history-page {
   max-width: 900px;
+}
+.history-search {
+  display: grid;
+  gap: 7px;
+  max-width: 480px;
+  margin-bottom: 20px;
+}
+.history-search label {
+  font-size: 14px;
+  font-weight: 700;
+}
+.history-search > div {
+  display: flex;
+  gap: 8px;
+}
+.history-search input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
 }
 .history-list {
   display: grid;
@@ -2319,6 +2407,16 @@ input[type="checkbox"] {
   .admin-heading {
     flex-direction: column;
     gap: 0;
+  }
+  .admin-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-appointment-search {
+    min-width: 0;
+  }
+  .admin-appointment-search > div {
+    flex-wrap: wrap;
   }
   .admin-patient-heading {
     flex-direction: column;

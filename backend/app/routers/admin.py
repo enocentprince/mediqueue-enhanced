@@ -14,6 +14,38 @@ from app.time_utils import parse_timestamp, scheduling_resource, utc_now, utc_ti
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+@router.get("/appointments")
+def list_admin_appointments(
+	email: str | None = None,
+	admin: UserResponse = Depends(require_admin),
+):
+	query = """
+		SELECT appointments.id, appointments.starts_at, appointments.department,
+			appointments.location, appointments.status,
+			users.name AS patient_name, users.email AS patient_email
+		FROM appointments
+		JOIN users ON users.id = appointments.patient_id
+	"""
+	parameters = ()
+	if email and email.strip():
+		query += " WHERE users.email = ? COLLATE NOCASE"
+		parameters = (email.strip(),)
+	query += " ORDER BY appointments.starts_at DESC, appointments.created_at DESC"
+	with get_connection() as connection:
+		rows = connection.execute(query, parameters).fetchall()
+	return [
+		{
+			"id": row["id"],
+			"patient": {"name": row["patient_name"], "email": row["patient_email"]},
+			"starts_at": row["starts_at"],
+			"department": row["department"],
+			"location": row["location"],
+			"status": row["status"],
+		}
+		for row in rows
+	]
+
+
 @router.get("/consultations")
 def consultation_queue(admin: UserResponse = Depends(require_admin)):
 	with get_connection() as connection:

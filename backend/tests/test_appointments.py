@@ -250,6 +250,45 @@ def test_appointment_history_and_admin_completion(api):
 	assert api.post(f"/admin/appointments/{booking.json()['id']}/cancel").status_code == 409
 
 
+def test_admin_can_list_all_appointments_and_search_by_email(api):
+	first_patient = register(api, "admin-search-first")
+	first_consultation, _ = create_consultation(api)
+	first_offer = add_offer(first_consultation["id"], utc_now() + timedelta(days=2))
+	first_booking = api.post(f"/appointments/offers/{first_offer}/select")
+	assert first_booking.status_code == 201
+	first_email = first_patient["email"]
+
+	other = TestClient(api.app)
+	other_patient = register(other, "admin-search-other")
+	other_consultation, _ = create_consultation(other)
+	other_offer = add_offer(other_consultation["id"], utc_now() + timedelta(days=3))
+	assert other.post(f"/appointments/offers/{other_offer}/select").status_code == 201
+
+	with get_connection() as connection:
+		connection.execute("UPDATE users SET role = 'admin' WHERE id = ?", (first_patient["id"],))
+
+	all_appointments = api.get("/admin/appointments")
+	assert all_appointments.status_code == 200
+	assert len(all_appointments.json()) == 2
+	assert {item["patient"]["email"] for item in all_appointments.json()} == {
+		first_email,
+		other_patient["email"],
+	}
+
+	matched = api.get(f"/admin/appointments?email={first_email.upper()}")
+	assert matched.status_code == 200
+	assert len(matched.json()) == 1
+	assert matched.json()[0]["id"] == first_booking.json()["id"]
+	assert matched.json()[0]["patient"]["email"] == first_email
+	assert api.get("/admin/appointments?email=missing@example.com").json() == []
+
+
+def test_patient_cannot_list_admin_appointments(api):
+	register(api, "not-admin")
+	response = api.get("/admin/appointments")
+	assert response.status_code == 403
+
+
 def test_completed_or_cancelled_consultation_requires_a_new_preconsultation(api):
 	register(api, "independent")
 	consultation, _ = create_consultation(api)

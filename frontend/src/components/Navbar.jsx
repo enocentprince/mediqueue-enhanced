@@ -39,7 +39,7 @@ export default function Navbar({ path }) {
           </a>
           <a href="#/how-it-works">How it works</a>
           <a href="#/features">Why MediQueue</a>
-          {user?.role === "admin" && <a href="#/admin">Admin review</a>}
+          {user?.role === "admin" && <a href="#/admin">My dashboard</a>}
           {(demo || (user && user.role !== "admin")) && (
             <a className={path === "/history" ? "active" : ""} href="#/history">
               History
@@ -52,7 +52,9 @@ export default function Navbar({ path }) {
         <div className="nav-actions">
           {user || demo ? (
             <>
-              <a href="#/dashboard">My dashboard</a>
+              {(demo || user?.role !== "admin") && (
+                <a href="#/dashboard">My dashboard</a>
+              )}
               <Button variant="outline" onClick={leaveSession}>
                 {demo ? "Exit demo" : "Log out"}
               </Button>

@@ -136,6 +136,13 @@ export async function getAdminConsultations() {
   return requestJson("/admin/consultations", { method: "GET" });
 }
 
+export async function getAdminAppointments(email = "") {
+  const query = email.trim()
+    ? `?email=${encodeURIComponent(email.trim())}`
+    : "";
+  return requestJson(`/admin/appointments${query}`, { method: "GET" });
+}
+
 export async function offerAppointmentDates(consultationId, offers) {
   return requestJson(`/admin/consultations/${consultationId}/offers`, {
     method: "POST",
