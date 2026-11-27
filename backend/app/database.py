@@ -33,6 +33,7 @@ def initialize_database():
 				id TEXT PRIMARY KEY,
 				name TEXT NOT NULL,
 				email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+				mobile TEXT NOT NULL DEFAULT '',
 				password_hash TEXT NOT NULL,
 				role TEXT NOT NULL DEFAULT 'patient',
 				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -93,6 +94,7 @@ def initialize_database():
 			"""
 		)
 		_add_column(connection, "users", "role TEXT NOT NULL DEFAULT 'patient'")
+		_add_column(connection, "users", "mobile TEXT NOT NULL DEFAULT ''")
 		_add_column(connection, "consultations", "submission_id TEXT")
 		_add_column(connection, "consultation_images", "content_sha256 TEXT")
 		_add_column(connection, "appointments", "resource_key TEXT NOT NULL DEFAULT ''")
@@ -124,24 +126,29 @@ def initialize_database():
 
 	admin_email = os.getenv("MEDIQUEUE_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL).strip().lower()
 	admin_email = admin_email or DEFAULT_ADMIN_EMAIL
-	admin_password = os.getenv("MEDIQUEUE_ADMIN_PASSWORD", "Admin1")
-	if admin_password:
-		with get_connection() as connection:
-			admin = connection.execute(
-				"SELECT id FROM users WHERE email = ?", (admin_email,)
-			).fetchone()
-			if admin:
+	configured_admin_password = os.getenv("MEDIQUEUE_ADMIN_PASSWORD")
+	admin_password = configured_admin_password or "Admin1"
+	with get_connection() as connection:
+		admin = connection.execute(
+			"SELECT id FROM users WHERE email = ?", (admin_email,)
+		).fetchone()
+		if admin:
+			if configured_admin_password:
 				connection.execute(
 					"UPDATE users SET role = 'admin', password_hash = ? WHERE id = ?",
-					(hash_password(admin_password), admin["id"]),
+					(hash_password(configured_admin_password), admin["id"]),
 				)
 			else:
 				connection.execute(
-					"INSERT INTO users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, 'admin')",
-					(
-						str(uuid.uuid4()),
-						os.getenv("MEDIQUEUE_ADMIN_NAME", "MediQueue Admin"),
-						admin_email,
-						hash_password(admin_password),
-					),
+					"UPDATE users SET role = 'admin' WHERE id = ?", (admin["id"],)
 				)
+		else:
+			connection.execute(
+				"INSERT INTO users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, 'admin')",
+				(
+					str(uuid.uuid4()),
+					os.getenv("MEDIQUEUE_ADMIN_NAME", "MediQueue Admin"),
+					admin_email,
+					hash_password(admin_password),
+				),
+			)

@@ -1,4 +1,4 @@
-const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const baseUrl = import.meta.env.VITE_API_URL || "";
 
 async function requestJson(path, options) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -25,13 +25,20 @@ export async function signInWithPassword(email, password) {
   return data.user;
 }
 
-export async function signInAsAdmin(password) {
+export async function signInAsAdmin(email, password) {
   const data = await requestJson("/auth/admin-login", {
     method: "POST",
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ email, password }),
   });
   if (!data.user?.name) throw new Error("The sign-in response was incomplete.");
   return data.user;
+}
+
+export async function createAdminAccount(account) {
+  return requestJson("/admin/accounts", {
+    method: "POST",
+    body: JSON.stringify(account),
+  });
 }
 
 export async function registerUser(name, email, password) {

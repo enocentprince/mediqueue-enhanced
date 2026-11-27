@@ -19,8 +19,8 @@ export function AuthProvider({ children }) {
     setUser(await signInWithPasswordRequest(email, password));
     setDemo(false);
   }
-  async function signInAsAdmin(password) {
-    setUser(await signInAsAdminRequest(password));
+  async function signInAsAdmin(email, password) {
+    setUser(await signInAsAdminRequest(email, password));
     setDemo(false);
   }
   async function registerUser({ name, email, password }) {

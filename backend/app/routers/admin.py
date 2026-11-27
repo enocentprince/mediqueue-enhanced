@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import uuid
 from pathlib import Path
 
@@ -6,12 +7,47 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from app.database import get_connection
-from app.routers.auth import require_admin
+from app.routers.auth import normalize_email, require_admin
 from app.schemas.admin import AppointmentOffersCreate
-from app.schemas.user import UserResponse
+from app.schemas.user import AdminCreateRequest, UserResponse
+from app.security import hash_password
 from app.time_utils import parse_timestamp, scheduling_resource, utc_now, utc_timestamp
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.post("/accounts", response_model=UserResponse, status_code=201)
+def create_admin_account(
+	payload: AdminCreateRequest,
+	_admin: UserResponse = Depends(require_admin),
+):
+	name = payload.name.strip()
+	mobile = payload.mobile.strip()
+	if not name:
+		raise HTTPException(status_code=422, detail="Name is required.")
+	if not mobile:
+		raise HTTPException(status_code=422, detail="Mobile number is required.")
+	email = normalize_email(payload.email)
+	user_id = str(uuid.uuid4())
+	try:
+		with get_connection() as connection:
+			connection.execute(
+				"INSERT INTO users (id, name, email, mobile, password_hash, role) "
+				"VALUES (?, ?, ?, ?, ?, 'admin')",
+				(user_id, name, email, mobile, hash_password(payload.password)),
+			)
+			row = connection.execute(
+				"SELECT id, name, email, role FROM users WHERE id = ?", (user_id,)
+			).fetchone()
+	except sqlite3.IntegrityError as error:
+		if "UNIQUE constraint failed" in str(error):
+			raise HTTPException(
+				status_code=409, detail="An account already exists for this email."
+			) from error
+		raise
+	return UserResponse(
+		id=row["id"], name=row["name"], email=row["email"], role=row["role"]
+	)
 
 
 @router.get("/appointments")

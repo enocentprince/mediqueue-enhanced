@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, ClipboardList, RefreshCw } from "lucide-react";
 import {
+  createAdminAccount,
   getAdminConsultations,
   getAdminAppointments,
   cancelAdminAppointment,
   completeAdminAppointment,
   offerAppointmentDates,
 } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
-const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const baseUrl = import.meta.env.VITE_API_URL || "";
 
 function defaultOptions() {
   return ["", "", ""].map(() => ({ startsAt: "", department: "General medicine", location: "MediQueue Hospital · Block B" }));
 }
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [consultations, setConsultations] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [emailSearch, setEmailSearch] = useState("");
@@ -26,6 +29,47 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [appointmentsError, setAppointmentsError] = useState("");
   const [notice, setNotice] = useState("");
+  const [adminAccount, setAdminAccount] = useState({
+    name: "",
+    email: "",
+    mobile: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+  const [adminAccountError, setAdminAccountError] = useState("");
+  const [adminAccountNotice, setAdminAccountNotice] = useState("");
+
+  async function createAdmin(event) {
+    event.preventDefault();
+    if (adminAccount.password !== adminAccount.confirmPassword) {
+      setAdminAccountError("The admin passwords do not match.");
+      return;
+    }
+    setCreatingAdmin(true);
+    setAdminAccountError("");
+    setAdminAccountNotice("");
+    try {
+      const created = await createAdminAccount({
+        name: adminAccount.name,
+        email: adminAccount.email,
+        mobile: adminAccount.mobile,
+        password: adminAccount.password,
+      });
+      setAdminAccountNotice(`Admin account created for ${created.name}.`);
+      setAdminAccount({
+        name: "",
+        email: "",
+        mobile: "",
+        password: "",
+        confirmPassword: "",
+      });
+    } catch (createError) {
+      setAdminAccountError(createError.message);
+    } finally {
+      setCreatingAdmin(false);
+    }
+  }
 
   async function loadQueue() {
     setLoading(true);
@@ -136,13 +180,90 @@ export default function AdminDashboard() {
           <span className="eyebrow plain">CARE TEAM WORKSPACE</span>
           <h1>My dashboard</h1>
           <p className="page-intro">
-            View appointments across the care team and find a patient's bookings by email.
+            Welcome, <strong>{user?.name}</strong>. View appointments across the care team and find a patient's bookings by email.
           </p>
         </div>
         <button className="button button-outline refresh-button" onClick={() => { loadQueue(); loadAppointments(); }} disabled={loading || appointmentsLoading}>
           <RefreshCw size={16} /> Refresh
         </button>
       </div>
+      <section className="admin-account-section" aria-labelledby="create-admin-title">
+        <div className="admin-section-heading">
+          <div>
+            <h2 id="create-admin-title">Create an admin account</h2>
+            <p>Each admin signs in with their email and their own password.</p>
+          </div>
+        </div>
+        <form className="register-fields" onSubmit={createAdmin}>
+          <label className="register-field">
+            <span>Full name</span>
+            <input
+              type="text"
+              name="adminFullName"
+              autoComplete="name"
+              value={adminAccount.name}
+              onChange={(event) => setAdminAccount({ ...adminAccount, name: event.target.value })}
+              minLength={2}
+              maxLength={120}
+              required
+            />
+          </label>
+          <label className="register-field">
+            <span>Email address</span>
+            <input
+              type="email"
+              name="adminEmail"
+              autoComplete="email"
+              value={adminAccount.email}
+              onChange={(event) => setAdminAccount({ ...adminAccount, email: event.target.value })}
+              required
+            />
+          </label>
+          <label className="register-field">
+            <span>Mobile number</span>
+            <input
+              type="tel"
+              name="adminMobile"
+              autoComplete="tel"
+              value={adminAccount.mobile}
+              onChange={(event) => setAdminAccount({ ...adminAccount, mobile: event.target.value })}
+              maxLength={32}
+              required
+            />
+          </label>
+          <label className="register-field">
+            <span>Password</span>
+            <input
+              type="password"
+              name="adminPassword"
+              autoComplete="new-password"
+              value={adminAccount.password}
+              onChange={(event) => setAdminAccount({ ...adminAccount, password: event.target.value })}
+              minLength={6}
+              maxLength={128}
+              required
+            />
+          </label>
+          <label className="register-field">
+            <span>Confirm password</span>
+            <input
+              type="password"
+              name="adminConfirmPassword"
+              autoComplete="new-password"
+              value={adminAccount.confirmPassword}
+              onChange={(event) => setAdminAccount({ ...adminAccount, confirmPassword: event.target.value })}
+              minLength={6}
+              maxLength={128}
+              required
+            />
+          </label>
+          <button className="button button-primary" type="submit" disabled={creatingAdmin}>
+            {creatingAdmin ? "Creating account..." : "Create admin account"}
+          </button>
+        </form>
+        {adminAccountError && <p className="error" role="alert">{adminAccountError}</p>}
+        {adminAccountNotice && <p className="success-message" role="status">{adminAccountNotice}</p>}
+      </section>
       <section className="admin-appointment-directory" aria-labelledby="admin-appointments-title">
         <div className="admin-section-heading">
           <div>

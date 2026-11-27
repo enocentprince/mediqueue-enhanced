@@ -1034,6 +1034,12 @@ input[type="checkbox"] {
   margin: 0;
   color: var(--muted);
 }
+.admin-account-section {
+  margin: 8px 0 38px;
+  padding-block: 22px 28px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
 .admin-appointment-directory {
   margin: 8px 0 38px;
   padding-block: 22px 28px;

@@ -15,6 +15,7 @@ Install Node.js 22 LTS or later and Python 3.11 or later. Run the backend and fr
 cd backend
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-dev.txt
+$env:MEDIQUEUE_COOKIE_SECURE = "true"
 .venv\Scripts\python -m uvicorn main:app --reload
 ```
 
@@ -23,6 +24,11 @@ cd frontend
 npm ci
 npm run dev
 ```
+
+Open `https://127.0.0.1:5173`. Vite generates a self-signed development
+certificate, so your browser may ask you to accept it. API requests are proxied
+to the local HTTP backend; the session cookie is marked Secure. This certificate
+is for local development only and is not suitable for a public website.
 
 ## Current behavior
 
@@ -38,23 +44,27 @@ Use fictional information. Demo answers and images stay in React memory. Signed-
 
 ## Create the first admin
 
-No setup is required for local development: startup creates the default admin account and its login requires only the password `Admin1`. To use a custom account, set these optional values before starting the backend:
+No setup is required for local development: startup creates the default admin account (`admin@mediqueue.local`) with password `Admin1`. Admin sign-in uses an email address and password. Once signed in, an admin can create additional admin accounts from the dashboard; each account has its own password, and only signed-in admins can create them.
+
+To configure the initial admin account before the first backend startup, set:
 
 ```powershell
 $env:MEDIQUEUE_ADMIN_EMAIL = "admin@example.com"
 $env:MEDIQUEUE_ADMIN_NAME = "MediQueue Admin"
-# Optional: override the default password
+# Optional: set a private initial password instead of Admin1
 $env:MEDIQUEUE_ADMIN_PASSWORD = "choose-a-strong-private-password"
 ```
 
-Startup creates or promotes that account and resets its password to the configured value (or `Admin1` when no password is supplied). The admin login form asks only for the password. Keep custom credentials out of frontend configuration and source control; change the default before exposing the service beyond local development.
+When `MEDIQUEUE_ADMIN_PASSWORD` is set, it configures the initial admin's password at startup. Without it, existing passwords are preserved and `Admin1` is used only when creating the default local account. Keep custom credentials out of frontend configuration and source control; change the local default before exposing the service.
 
 ## Configuration and persistence
 
-The frontend defaults to `http://127.0.0.1:8000`. Override it in `frontend/.env.local` when needed:
+The frontend uses same-origin API requests by default. In local development,
+Vite proxies them to the backend. Set `VITE_API_URL` in `frontend/.env.local`
+only when the API is hosted at a separate HTTPS origin:
 
 ```dotenv
-VITE_API_URL=http://127.0.0.1:8000
+VITE_API_URL=https://api.example.com
 ```
 
 Google sign-in is hidden because the backend does not implement verified Google credentials. Local registration and password sign-in remain available.

@@ -13,7 +13,15 @@ class LoginRequest(BaseModel):
 
 
 class AdminLoginRequest(BaseModel):
+	email: str = Field(min_length=5, max_length=320)
 	password: str = Field(min_length=1, max_length=128)
+
+
+class AdminCreateRequest(BaseModel):
+	name: str = Field(min_length=2, max_length=120)
+	email: str = Field(min_length=5, max_length=320)
+	mobile: str = Field(min_length=1, max_length=32)
+	password: str = Field(min_length=6, max_length=128)
 
 
 class UserResponse(BaseModel):

@@ -6,6 +6,7 @@ The backend uses SQLite for local development. Authentication returns an HttpOnl
 
 - `POST /auth/register` accepts a name, email, and password and creates a patient account.
 - `POST /auth/login` verifies a password and issues a seven-day session.
+- `POST /auth/admin-login` accepts an admin email and that admin's individual password.
 - `GET /auth/me` restores the current cookie-authenticated user.
 - `POST /auth/logout` deletes the server-side session and clears the cookie.
 
@@ -36,6 +37,8 @@ Upload storage uses generated UUID filenames under `uploads/`; supplied filename
 
 Appointment inputs must include a timezone offset. The API normalizes them to UTC and returns ISO-8601 timestamps ending in `Z`. Selecting an expired offer returns `410`; selected, withdrawn, or resource-conflicting offers return `409`. Cancelled bookings do not hold their former time slot. Scheduling conflicts are scoped to the normalized department and location pair rather than globally to a timestamp.
 
-Admin accounts are provisioned at startup with `MEDIQUEUE_ADMIN_EMAIL` and `MEDIQUEUE_ADMIN_PASSWORD`. Admin operations and patient ownership checks are enforced by the API. Frontend route visibility is not treated as authorization.
+The initial admin is provisioned at startup with `MEDIQUEUE_ADMIN_EMAIL` and `MEDIQUEUE_ADMIN_PASSWORD`. Admin operations and patient ownership checks are enforced by the API. Frontend route visibility is not treated as authorization.
+
+`POST /admin/accounts` creates an admin account with a name, email, mobile number, and unique password. It requires an authenticated admin session; public users cannot self-register as admins. The initial local admin uses `admin@mediqueue.local` and `Admin1` unless configured with `MEDIQUEUE_ADMIN_PASSWORD`. When that environment variable is set, it updates the initial admin password at startup; otherwise, existing passwords are preserved.
 
 The local session implementation is intended for development. Production requires HTTPS secure cookies, CSRF protection, managed session/database storage, secret management, audit logging, and explicit data retention/deletion controls.

@@ -25,6 +25,7 @@ export default defineConfig({
       env: {
         ...process.env,
         MEDIQUEUE_DB_PATH: e2eDatabase,
+        MEDIQUEUE_COOKIE_SECURE: "false",
         MEDIQUEUE_ADMIN_EMAIL: "e2e-admin@example.com",
         MEDIQUEUE_ADMIN_PASSWORD: "e2e-admin-password",
         MEDIQUEUE_ADMIN_NAME: "E2E Admin",
@@ -35,6 +36,10 @@ export default defineConfig({
       url: "http://127.0.0.1:5173",
       reuseExistingServer: !process.env.CI,
       timeout: 180000,
+      env: {
+        ...process.env,
+        VITE_API_URL: "http://127.0.0.1:8000",
+      },
     },
   ],
 });

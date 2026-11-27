@@ -5,7 +5,7 @@ import uuid
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 
-from app.database import DEFAULT_ADMIN_EMAIL, get_connection
+from app.database import get_connection
 from app.schemas.user import AdminLoginRequest, AuthResponse, LoginRequest, RegisterRequest, UserResponse
 from app.security import create_session_token, hash_password, verify_password
 
@@ -34,7 +34,7 @@ def issue_session(response: Response, user_id: str):
 		SESSION_COOKIE,
 		token,
 		httponly=True,
-		secure=False,
+		secure=os.getenv("MEDIQUEUE_COOKIE_SECURE", "false").lower() == "true",
 		samesite="lax",
 		max_age=SESSION_DAYS * 24 * 60 * 60,
 	)
@@ -86,17 +86,16 @@ def login(payload: LoginRequest, response: Response):
 
 @router.post("/admin-login", response_model=AuthResponse)
 def admin_login(payload: AdminLoginRequest, response: Response):
-	admin_email = os.getenv("MEDIQUEUE_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL).strip().lower()
-	admin_email = admin_email or DEFAULT_ADMIN_EMAIL
+	email = normalize_email(payload.email)
 	with get_connection() as connection:
 		row = connection.execute(
 			"SELECT id, name, email, password_hash, role FROM users WHERE email = ? AND role = 'admin'",
-			(admin_email,),
+			(email,),
 		).fetchone()
 	if row and verify_password(payload.password, row["password_hash"]):
 		issue_session(response, row["id"])
 		return AuthResponse(user=user_response(row))
-	raise HTTPException(status_code=401, detail="Admin password is incorrect.")
+	raise HTTPException(status_code=401, detail="Admin email or password is incorrect.")
 
 
 def get_current_user(mediqueue_session: str | None = Cookie(default=None)) -> UserResponse:
@@ -130,4 +129,7 @@ def logout(response: Response, mediqueue_session: str | None = Cookie(default=No
 	if mediqueue_session:
 		with get_connection() as connection:
 			connection.execute("DELETE FROM sessions WHERE token = ?", (mediqueue_session,))
-	response.delete_cookie(SESSION_COOKIE)
+	response.delete_cookie(
+		SESSION_COOKIE,
+		secure=os.getenv("MEDIQUEUE_COOKIE_SECURE", "false").lower() == "true",
+	)

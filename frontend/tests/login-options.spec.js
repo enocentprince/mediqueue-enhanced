@@ -24,7 +24,8 @@ test("admin login redirects to the guarded admin workspace", async ({ page }) =>
   await page.route("**/auth/me", route => route.fulfill({ status: 401, json: { detail: "Not signed in" } }));
   await page.route("**/auth/admin-login", route => route.fulfill({ json: { user: { id: "sample", name: "Patient", email: "patient@example.com", role: "patient" } } }));
   await page.goto("/#/login/admin");
-  await expect(page.getByLabel("Email address")).toHaveCount(0);
+  await expect(page.getByLabel("Email address")).toBeVisible();
+  await page.getByLabel("Email address").fill("admin@example.com");
   await page.getByLabel("Password", { exact: true }).fill("Admin@");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/#\/admin$/);
@@ -70,4 +71,66 @@ test("admin dashboard lists appointments and searches by patient email", async (
   await expect(page.getByText("Alex Patient")).toBeVisible();
   await expect(page.getByText("Sam Patient")).toHaveCount(0);
   await expect(page.getByText("General medicine")).toBeVisible();
+});
+
+test("admin can create an admin account and sees their own name", async ({ page }) => {
+  let createdAccount;
+  await page.route("**/auth/me", (route) =>
+    route.fulfill({
+      json: {
+        user: {
+          id: "admin-1",
+          name: "Jordan Admin",
+          email: "jordan@example.com",
+          role: "admin",
+        },
+      },
+    }),
+  );
+  await page.route("**/consultations/mine/latest", (route) =>
+    route.fulfill({ json: null }),
+  );
+  await page.route("**/admin/consultations", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/admin/appointments**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/admin/accounts", (route) => {
+    createdAccount = route.request().postDataJSON();
+    return route.fulfill({
+      status: 201,
+      json: {
+        id: "admin-2",
+        name: createdAccount.name,
+        email: createdAccount.email,
+        role: "admin",
+      },
+    });
+  });
+
+  await page.goto("/#/admin");
+  await expect(page.getByText("Welcome, Jordan Admin.")).toBeVisible();
+  await page.getByLabel("Full name").fill("Taylor Admin");
+  await page.getByLabel("Email address").fill("taylor@example.com");
+  await page.getByLabel("Mobile number").fill("0712345678");
+  await page.getByLabel("Password", { exact: true }).fill("taylor-password");
+  await page.getByLabel("Confirm password").fill("different-password");
+  await page.getByRole("button", { name: "Create admin account" }).click();
+  await expect(page.getByRole("alert")).toHaveText("The admin passwords do not match.");
+  expect(createdAccount).toBeUndefined();
+  await page
+    .getByLabel("Confirm password")
+    .fill("taylor-password");
+  await page.getByRole("button", { name: "Create admin account" }).click();
+
+  await expect(
+    page.locator(".admin-account-section").getByRole("status"),
+  ).toHaveText("Admin account created for Taylor Admin.");
+  expect(createdAccount).toMatchObject({
+    name: "Taylor Admin",
+    email: "taylor@example.com",
+    mobile: "0712345678",
+    password: "taylor-password",
+  });
 });
